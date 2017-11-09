@@ -60,12 +60,11 @@
     ipa_images_ramdisk_checksum: "{{ openstack_image.checksum }}"
   when: openstack_image != None
 
-- name: Ensure Ironic Python Agent (IPA) images are removed from Glance
-  os_image:
-    auth_type: "{{ ipa_images_openstack_auth_type }}"
-    auth: "{{ ipa_images_openstack_auth }}"
-    name: "{{ item.name }}"
-    state: absent
+# The os_image module will get confused if there are multiple images with the
+# same name, so temporarily rename the old images. They will still be
+# accessible via UUID.
+- name: Ensure old Ironic Python Agent (IPA) images are renamed
+  command: openstack image set {{ item.name }} --name {{ item.name }}.old
   with_items:
     - name: "{{ ipa_images_kernel_name }}"
       checksum: "{{ ipa_images_checksum.results[0].stat.md5 }}"
@@ -76,6 +75,7 @@
   when:
     - item.glance_checksum != None
     - item.checksum != item.glance_checksum
+  environment: "{{ ipa_images_openstack_auth_env }}"
 
 - name: Ensure Ironic Python Agent (IPA) images are registered with Glance
   os_image:
@@ -91,6 +91,52 @@
       format: aki
     - name: "{{ ipa_images_ramdisk_name }}"
       format: ari
+  register: ipa_images_new_images
+
+- name: Get a list of ironic nodes
+  command: openstack baremetal node list --fields uuid driver_info -f json
+  register: ipa_images_ironic_node_list
+  changed_when: False
+  environment: "{{ ipa_images_openstack_auth_env }}"
+
+- name: Initialise a fact containing the ironic nodes
+  set_fact:
+    ironic_nodes: []
+
+- name: Update a fact containing the ironic nodes
+  set_fact:
+    ipa_images_ironic_nodes: "{{ ipa_images_ironic_nodes + [item] }}"
+  with_items: "{{ ipa_images_ironic_node_list.stdout | from_json }}"
+  when: >
+    not ipa_images_compute_node_limit or
+    item['Name'] in ipa_images_compute_node_limit
+
+- name: Ensure ironic nodes use the new Ironic Python Agent (IPA) images
+  command: >
+    openstack baremetal node set {{ item }}
+    --driver-info deploy_kernel={{ ipa_images_new_images.results[0].id }}
+    --driver-info deploy_ramdisk={{ ipa_images_new_images.results[1].id }}
+  with_items: "{{ ipa_images_ironic_nodes }}"
+  when:
+    item.driver_info.deploy_kernel != 
+  environment: "{{ ipa_images_openstack_auth_env }}"
+
+- name: Ensure old Ironic Python Agent (IPA) images are removed from Glance
+  os_image:
+    auth_type: "{{ ipa_images_openstack_auth_type }}"
+    auth: "{{ ipa_images_openstack_auth }}"
+    name: "{{ item.name }}"
+    state: absent
+  with_items:
+    - name: "{{ ipa_images_kernel_name }}"
+      checksum: "{{ ipa_images_checksum.results[0].stat.md5 }}"
+      glance_checksum: "{{ ipa_images_kernel_checksum | default }}"
+    - name: "{{ ipa_images_ramdisk_name }}"
+      checksum: "{{ ipa_images_checksum.results[1].stat.md5 }}"
+      glance_checksum: "{{ ipa_images_ramdisk_checksum | default }}"
+  when:
+    - "{{ item.glance_checksum != None }}"
+    - "{{ item.checksum != item.glance_checksum }}"
 
 # This variable is unset before we set it, and it does not appear to be
 # possible to unset a variable in Ansible.
