@@ -2,6 +2,9 @@
 ###############################################################################
 # DNS.
 
+# Whether to configure the DNS resolver.
+#resolv_configure:
+
 # List of DNS nameservers.
 #resolv_nameservers:
 

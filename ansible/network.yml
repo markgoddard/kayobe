@@ -49,6 +49,7 @@
 
   roles:
     - role: ahuffman.resolv
+      when: resolv_configure | bool
       become: True
 
     - role: MichaelRigart.interfaces
