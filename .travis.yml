@@ -24,6 +24,13 @@ env:
     - TOX_ENV=py27
     # Run ansible syntax checks.
     - TOX_ENV=ansible-syntax
+    # Run ansible-lint.
+    - TOX_ENV=ansible-lint
+
+matrix:
+  allow_failues:
+    # Ansible-lint is currently advisory.
+    - env: TOX_ENV=ansible-lint
 
 install:
   - pip install tox
