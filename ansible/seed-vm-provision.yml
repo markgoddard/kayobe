@@ -68,6 +68,7 @@
           base64 -d {{ image_cache_path }}/{{ seed_host | to_uuid }}.gz
           | gunzip
           > {{ seed_vm_configdrive_path }}
+      changed_when: True
 
     - name: Ensure unnecessary files are removed
       file:

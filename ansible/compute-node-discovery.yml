@@ -22,6 +22,7 @@
     - name: Ensure baremetal compute nodes are powered off
       command: ipmitool -U {{ ipmi_username }} -P {{ ipmi_password }} -H {{ ipmi_address }} -I lanplus chassis power off
       delegate_to: "{{ controller_host }}"
+      changed_when: True
       vars:
         # NOTE: Without this, the controller's ansible_host variable will not
         # be respected when using delegate_to.
@@ -34,6 +35,7 @@
     - name: Ensure baremetal compute nodes are set to boot via PXE
       command: ipmitool -U {{ ipmi_username }} -P {{ ipmi_password }} -H {{ ipmi_address }} -I lanplus chassis bootdev pxe
       delegate_to: "{{ controller_host }}"
+      changed_when: True
       vars:
         # NOTE: Without this, the controller's ansible_host variable will not
         # be respected when using delegate_to.
@@ -46,6 +48,7 @@
     - name: Ensure baremetal compute nodes are powered on
       command: ipmitool -U {{ ipmi_username }} -P {{ ipmi_password }} -H {{ ipmi_address }} -I lanplus chassis power on
       delegate_to: "{{ controller_host }}"
+      changed_when: True
       vars:
         # NOTE: Without this, the controller's ansible_host variable will not
         # be respected when using delegate_to.

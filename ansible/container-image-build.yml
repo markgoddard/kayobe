@@ -31,7 +31,7 @@
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
       become: True
-      
+
     - name: Login to docker registry
       docker_login:
         registry_url: "{{ kolla_docker_registry or omit }}"
@@ -51,3 +51,5 @@
         {% if push_images | bool %}--push{% endif %} \
         {{ item.regexes }} 2>&1 | tee --append {{ kolla_build_log_path }}
       with_items: "{{ container_image_sets }}"
+      register: build_result
+      changed_when: "'\"built\": []' not in build_result.stdout"

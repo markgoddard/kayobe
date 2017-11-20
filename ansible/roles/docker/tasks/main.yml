@@ -22,7 +22,7 @@
 # connection parameters to determine the control persist socket path.
 - name: Drop the persistent SSH connection to activate the new group membership
   local_action:
-    module: shell ssh -O stop {{ cp_hostname }} -o ControlPath={{ cp_path }}
+    module: command ssh -O stop {{ cp_hostname }} -o ControlPath={{ cp_path }}
   register: socket_removal
   failed_when:
     - socket_removal|failed
@@ -59,7 +59,7 @@
 
 - name: Drop all persistent SSH connections to activate the new group membership
   local_action:
-    module: shell ssh -O stop None -o ControlPath={{ item.path }}
+    module: command ssh -O stop None -o ControlPath={{ item.path }}
   with_items: "{{ cp_sockets.files }}"
   run_once: True
   when: not cp_sockets|skipped

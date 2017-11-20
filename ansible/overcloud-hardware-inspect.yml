@@ -100,6 +100,7 @@
       retries: "{{ ironic_retries }}"
       delay: "{{ ironic_retry_interval }}"
       delegate_to: "{{ seed_host }}"
+      changed_when: True
       vars:
         # NOTE: Without this, the seed's ansible_host variable will not be
         # respected when using delegate_to.

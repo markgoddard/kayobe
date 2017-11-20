@@ -29,3 +29,4 @@
         - set BIOS.BiosBootSettings.bootseq NIC.Integrated.1-3-1,HardDisk.List.1-1,Optical.SATAEmbedded.J-1
         - jobqueue create BIOS.Setup.1-1
         - serveraction powercycle
+      changed_when: True

@@ -10,7 +10,8 @@
     - "ifup-veth"
     - "ifdown-veth"
   become: True
-  register: ctl_result
+  notify:
+    - Bounce veth interfaces
 
 - name: Ensure veth sysconfig network interface files exist
   template:
@@ -22,6 +23,8 @@
   with_items: "{{ veth_interfaces }}"
   become: True
   register: veth_result
+  notify:
+    - Bounce veth interfaces
 
 - name: Ensure veth peer sysconfig network interface files exist
   template:
@@ -33,11 +36,5 @@
   with_items: "{{ veth_interfaces }}"
   become: True
   register: peer_result
-
-- name: Bounce veth interfaces
-  shell: ifdown {{ item[0].item.device }} ; ifup {{ item[0].item.device }}
-  with_together:
-    - "{{ veth_result.results }}"
-    - "{{ peer_result.results }}"
-  when: ctl_result|changed or item[0]|changed or item[1]|changed
-  become: True
+  notify:
+    - Bounce veth interfaces

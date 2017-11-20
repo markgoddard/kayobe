@@ -12,16 +12,21 @@
     - name: Ensure NIC boot protocol is configured
       raw: "racadm set Nic.NICConfig.{{ item }}.LegacyBootProto {% if item == drac_pxe_interface %}PXE{% else %}NONE{% endif %}"
       with_items: "{{ drac_interfaces }}"
+      changed_when: True
 
     - name: Ensure NIC configuration jobs are created
       raw: "racadm jobqueue create NIC.Integrated.1-{{ item }}-1 -s TIME_NOW"
       with_items: "{{ drac_interfaces }}"
+      changed_when: True
 
     - name: Ensure BIOS boot sequence is configured
       raw: "racadm set BIOS.BiosBootSettings.bootseq NIC.Integrated.1-{{ drac_pxe_interface }}-1,HardDisk.List.1-1,Optical.SATAEmbedded.J-1"
+      changed_when: True
 
     - name: Ensure BIOS configuration job is created
       raw: "racadm jobqueue create BIOS.Setup.1-1"
+      changed_when: True
 
     - name: Ensure server is rebooted
       raw: "racadm serveraction powercycle"
+      changed_when: True

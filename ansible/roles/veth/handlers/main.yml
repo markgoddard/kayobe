@@ -1,0 +1,8 @@
+---
+- name: Bounce veth interfaces
+  shell: ifdown {{ item[0].item.device }} ; ifup {{ item[0].item.device }}
+  with_together:
+    - "{{ veth_result.results }}"
+    - "{{ peer_result.results }}"
+  when: item[0]|changed or item[1]|changed
+  become: True

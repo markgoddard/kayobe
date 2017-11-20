@@ -49,6 +49,7 @@
 
         - name: Ensure Dell srvadmin repository is installed
           shell: "wget -q -O - http://linux.dell.com/repo/hardware/latest/bootstrap.cgi | bash"
+          changed_when: True
 
         - name: Ensure Dell srvadmin-idrac7 package is installed
           yum:
@@ -195,6 +196,7 @@
     # This should also delete the network interface within the namespace.
     - name: Ensure the bootstrap network namespace is removed from the controller
       command: "ip netns delete {{ idrac_bootstrap_net_namespace }}"
+      changed_when: True
       become: True
 
 - name: Display the results of the iDRAC bootstrap procedure

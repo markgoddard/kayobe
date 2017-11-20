@@ -19,6 +19,7 @@
   with_items: "{{ swift_service_names }}"
   delegate_to: "{{ swift_ring_build_host }}"
   run_once: True
+  changed_when: True
 
 - name: Ensure devices are added to Swift rings
   command: >
@@ -37,6 +38,7 @@
     - "{{ swift_service_names }}"
     - "{{ swift_block_devices }}"
   delegate_to: "{{ swift_ring_build_host }}"
+  changed_when: True
 
 - name: Ensure Swift rings are rebalanced
   command: >
@@ -48,6 +50,7 @@
   with_items: "{{ swift_service_names }}"
   delegate_to: "{{ swift_ring_build_host }}"
   run_once: True
+  changed_when: True
 
 - name: Ensure Swift ring files are copied
   local_action:

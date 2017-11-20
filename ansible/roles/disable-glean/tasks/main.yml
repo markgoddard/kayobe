@@ -3,6 +3,10 @@
   command: systemctl list-units glean*.service --no-legend --no-pager --state=loaded
   register: glean_services
   changed_when: False
+  tags:
+    # Ansible-line complains about use of systemctl vs. systemd module, but
+    # the module cannot list units.
+    - skip_ansible_lint
 
 - name: Ensure Glean services are stopped and disabled
   service:

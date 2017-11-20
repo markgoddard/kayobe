@@ -44,6 +44,8 @@
         pvremove -yff /dev/{{ item }}
     fi
   with_items: "{{ unmounted_devices.stdout_lines }}"
+  register: result
+  changed_when: "'Found' in result"
   become: True
 
 - name: Ensure that all unmounted block devices have filesystems wiped
@@ -53,8 +55,10 @@
   # The command can fail in some cases which are valid, so ignore the
   # result.
   failed_when: False
+  changed_when: True
 
 - name: Ensure that all unmounted block device headers are zeroed
   command: "dd if=/dev/zero of=/dev/{{ item }} bs=1M count=100"
   with_items: "{{ unmounted_devices.stdout_lines }}"
+  changed_when: True
   become: True
