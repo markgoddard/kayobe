@@ -2,8 +2,8 @@
 language: python
 python: "2.7"
 
-# Use a container.
-sudo: false
+# Use a VM.
+sudo: required
 
 # Install ansible
 addons:
@@ -13,29 +13,19 @@ addons:
       - python-virtualenv
       - realpath
 
-install:
-  - pip install tox
-  - ssh-keygen -t rsa -N '' -f tools/test-ssh-key
+env:
+  # Increase ansible timeout to avoid hitting
+  # https://github.com/ansible/ansible/issues/14426.
+  - ANSIBLE_TIMEOUT=30
 
+install:
+  # Prepare the development configuration.
+  - tools/travis-setup.sh
+  # Deploy a CentOS controller container.
+  - tools/container-deploy.sh
   # Install kayobe control host environment.
   - dev/install.sh
 
 script:
-  # Run the tox environment.
-  - tox -e ${TOX_ENV}
-
-jobs:
-  include:
-    - stage: Deployment test
-      # Use a VM.
-      sudo: required
-      install:
-        # Prepare the development configuration.
-        - tools/travis-setup.sh
-        # Deploy a CentOS controller container.
-        - tools/container-deploy.sh
-        # Install kayobe control host environment.
-        - dev/install.sh
-      script:
-        # Deploy the control plane.
-        - dev/overcloud-deploy.sh
+  # Deploy the control plane.
+  - dev/overcloud-deploy.sh
