@@ -1,0 +1,18 @@
+FROM centos/systemd
+MAINTAINER StackHPC Ltd. <mark@stackhpc.com>
+RUN yum -y install \
+    initscripts \
+    openssh-server \
+    sudo \
+    && yum clean all
+RUN systemctl enable \
+    sshd
+EXPOSE 22
+VOLUME ["/sys/fs/cgroup", "/tmp", "/run"]
+STOPSIGNAL SIGRTMIN+3
+
+# Enable bootstrapping via the root user.
+RUN mkdir /root/.ssh
+RUN chmod 700 /root/.ssh
+ADD test-ssh-key.pub /root/.ssh/authorized_keys
+RUN chmod 600 /root/.ssh/authorized_keys
