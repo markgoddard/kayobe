@@ -2,8 +2,8 @@
 language: python
 python: "2.7"
 
-# Run jobs in a VM
-sudo: required
+# Use a container.
+sudo: false
 
 # Install ansible
 addons:
@@ -17,5 +17,25 @@ install:
   - pip install tox
   - ssh-keygen -t rsa -N '' -f tools/test-ssh-key
 
+  # Install kayobe control host environment.
+  - dev/install.sh
+
 script:
-  - tools/container-deploy.sh
+  # Run the tox environment.
+  - tox -e ${TOX_ENV}
+
+jobs:
+  include:
+    - stage: Deployment test
+      # Use a VM.
+      sudo: required
+      install:
+        # Prepare the development configuration.
+        - tools/travis-setup.sh
+        # Deploy a CentOS controller container.
+        - tools/container-deploy.sh
+        # Install kayobe control host environment.
+        - dev/install.sh
+      script:
+        # Deploy the control plane.
+        - dev/overcloud-deploy.sh
