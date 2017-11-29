@@ -28,4 +28,12 @@ install:
 
 script:
   # Deploy the control plane.
-  - dev/overcloud-deploy.sh
+  - dev/overcloud-deploy.sh || (touch failed && false)
+  - "[[ -e failed ]] && source dev/environment-setup.sh && kayobe playbook run ansible/ntp.yml"
+  - "[[ -e failed ]] && docker exec -it centos-sshd ip a"
+  - "[[ -e failed ]] && docker exec -it centos-sshd sudo ip a"
+  - "[[ -e failed ]] && ssh root@localhost -p 2223 -o StrictHostKeyChecking=no hostname"
+  - "[[ -e failed ]] && ssh stack@localhost -p 2223 -o StrictHostKeyChecking=no hostname"
+  - "[[ -e failed ]] && ssh stack@localhost -p 2223 -o StrictHostKeyChecking=no sudo echo hi"
+  - "[[ -e failed ]] && docker exec -it centos-sshd sudo journalctl --no-pager"
+  - "[[ -e failed ]] && cat ~/ansible.log"

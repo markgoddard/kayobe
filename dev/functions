@@ -108,7 +108,9 @@ function overcloud_deploy {
     kayobe control host bootstrap
 
     echo "Configuring the controller host"
-    kayobe overcloud host configure
+    export ANSIBLE_DEBUG=1
+    export ANSIBLE_LOG=~/ansible.log
+    kayobe overcloud host configure -vvvv
 
     # Note: This must currently be before host configure, because host
     # configure runs kolla-ansible.yml, which validates the presence of the
