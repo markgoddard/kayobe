@@ -20,6 +20,7 @@
 # Whether to build container images for the overcloud services. If 0, they will
 # be pulled.
 #export KAYOBE_OVERCLOUD_CONTAINER_IMAGE_BUILD=0
+export KAYOBE_OVERCLOUD_CONTAINER_IMAGE_BUILD=1
 
 # Additional arguments to pass to kayobe commands.
 #export KAYOBE_EXTRA_ARGS=
