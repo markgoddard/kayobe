@@ -131,3 +131,10 @@ If kayobe detects that ``ansible_python_interpreter`` is set and references a
 virtual environment, it will create the virtual environment if it does not
 exist. Typically this variable should be set via a group variable for hosts in
 the ``seed``, ``seed-hypervisor``, and/or ``overcloud`` groups.
+
+The default Kayobe configuration in the ``kayobe-config`` repository sets
+``ansible_python_interpreter`` to ``/opt/kayobe/venvs/kayobe/bin/python`` for
+the ``seed``, ``seed-hypervisor``, and ``overcloud`` groups. Due to a
+limitation in Ansible, these variables must be manually modified if the
+``base_path`` or ``virtualenv_path`` variables are modified from their default
+values.
