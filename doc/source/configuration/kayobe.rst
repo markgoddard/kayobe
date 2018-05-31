@@ -15,6 +15,8 @@ touching the system configuration directory by setting the environment variable
 host will by default be located in ``/etc/kolla`` and can be overridden via
 ``KOLLA_CONFIG_PATH``.
 
+.. _config-kayobe-inventory-location:
+
 Ansible Inventory Location
 --------------------------
 
@@ -25,6 +27,8 @@ can be overridden by using the one of the command line arguments ``-i`` or
 ``KAYOBE_INVENTORY_PATH``.  Changing the default can be useful when a single
 Kayobe configuration provides multiple inventories, for example to support
 development, staging/preproduction and production environments.
+
+.. _config-kayobe-directory-layout:
 
 Configuration Directory Layout
 ==============================
