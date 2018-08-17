@@ -95,11 +95,13 @@ def is_readable_file(path):
     return {"result": True}
 
 
-def run_command(cmd, quiet=False, check_output=False, **kwargs):
+def run_command(cmd, quiet=False, check_output=False, quiet_errors=True,
+                **kwargs):
     """Run a command, checking the output.
 
     :param quiet: Redirect output to /dev/null
     :param check_output: Whether to return the output of the command
+    :param quiet_errors: If quiet is True, whether to display errors
     :returns: The output of the command if check_output is true
     """
     if isinstance(cmd, six.string_types):
@@ -108,10 +110,20 @@ def run_command(cmd, quiet=False, check_output=False, **kwargs):
         cmd_string = " ".join(cmd)
     LOG.debug("Running command: %s", cmd_string)
     if quiet:
-        with open("/dev/null", "w") as devnull:
-            kwargs["stdout"] = devnull
-            kwargs["stderr"] = devnull
-            subprocess.check_call(cmd, **kwargs)
+        if quiet_errors:
+            with open("/dev/null", "w") as devnull:
+                kwargs["stdout"] = devnull
+                kwargs["stderr"] = devnull
+                subprocess.check_call(cmd, **kwargs)
+        else:
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, **kwargs)
+            stdout, stderr = p.communicate()
+            if p.returncode != 0:
+                LOG.error("Command %s failed", cmd_string)
+                LOG.error("Standard output:\n%s", stdout)
+                LOG.error("Standard error:\n%s", stderr)
+                raise subprocess.CalledProcessError(p.returncode, cmd)
     elif check_output:
         return subprocess.check_output(cmd, **kwargs)
     else:

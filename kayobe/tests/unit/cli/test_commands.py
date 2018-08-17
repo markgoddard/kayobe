@@ -68,6 +68,135 @@ class TestCase(unittest.TestCase):
         self.assertEqual(expected_calls, mock_run.call_args_list)
 
     @mock.patch.object(commands.KayobeAnsibleMixin,
+                       "run_kayobe_config_dump")
+    def test_network_list(self, mock_dump):
+        command = commands.NetworkList(TestApp(), [])
+        parser = command.get_parser("test")
+        parsed_args = parser.parse_args([])
+
+        host_interfaces = {
+            "fake-host1": [
+                "fake-net1",
+                "fake-net2",
+            ],
+            "fake-host2": [
+                "fake-net1",
+                "fake-net3",
+            ],
+        }
+        net_info = [
+            {
+                "vlan": 1234,
+                "cidr": "1.2.3.4/5",
+                "gateway": "1.2.3.4",
+                "allocation_pool_start": "1.2.3.5",
+                "allocation_pool_end": "1.2.3.6",
+                "mtu": None,
+            },
+            {
+                "vlan": 2345,
+                "cidr": "2.3.4.5/6",
+                "gateway": "2.3.4.5",
+                "allocation_pool_start": "2.3.4.6",
+                "allocation_pool_end": "2.3.4.7",
+                "mtu": 1500,
+            },
+            {
+                "vlan": 3456,
+                "cidr": "3.4.5.6/7",
+                "gateway": "3.4.5.6",
+                "allocation_pool_start": "3.4.5.7",
+                "allocation_pool_end": "3.4.5.8",
+                "mtu": 9000,
+            },
+        ]
+        mock_dump.side_effect = [host_interfaces, net_info]
+
+        result = command.take_action(parsed_args)
+        expected_headings = (
+            "Name", "VLAN", "CIDR", "Gateway", "Allocation pool", "MTU")
+        expected_data = [
+            ("fake-net1", 1234, "1.2.3.4/5", "1.2.3.4", "1.2.3.5-1.2.3.6",
+             None),
+            ("fake-net2", 2345, "2.3.4.5/6", "2.3.4.5", "2.3.4.6-2.3.4.7",
+             1500),
+            ("fake-net3", 3456, "3.4.5.6/7", "3.4.5.6", "3.4.5.7-3.4.5.8",
+             9000),
+        ]
+        self.assertEqual(2, len(result))
+        self.assertEqual(expected_headings, result[0])
+        self.assertEqual(expected_data, list(result[1]))
+
+        host = host_interfaces.keys()[0]
+        extra_vars = {
+            "dump_expression": (
+                "{{ [\"fake-net1\", \"fake-net2\", \"fake-net3\"] | "
+                "map(\'net_info\') | list }}")
+        }
+        expected_calls = [
+            mock.call(mock.ANY, hosts=None, var_name="network_interfaces"),
+            mock.call(mock.ANY, host=host, extra_vars=extra_vars),
+        ]
+        self.assertEqual(expected_calls, mock_dump.call_args_list)
+
+    @mock.patch.object(commands.KayobeAnsibleMixin,
+                       "run_kayobe_config_dump")
+    def test_network_show(self, mock_dump):
+        command = commands.NetworkShow(TestApp(), [])
+        parser = command.get_parser("test")
+        parsed_args = parser.parse_args(["fake-net1"])
+
+        hostvars = {
+            "fake-host1": "fake-host1",
+            "fake-host2": "fake-host2",
+        }
+        net_info = {
+            "vlan": 1234,
+            "cidr": "1.2.3.4/5",
+            "gateway": "1.2.3.4",
+            "allocation_pool_start": "1.2.3.5",
+            "allocation_pool_end": "1.2.3.6",
+            "mtu": None,
+        }
+        mock_dump.side_effect = [hostvars, net_info]
+
+        result = command.take_action(parsed_args)
+
+        expected_headings = (
+            "Name", "VLAN", "CIDR", "Gateway", "Allocation pool", "MTU")
+        expected_data = (
+            "fake-net1", 1234, "1.2.3.4/5", "1.2.3.4", "1.2.3.5-1.2.3.6", None)
+        self.assertEqual(2, len(result))
+        self.assertEqual(expected_headings, result[0])
+        self.assertEqual(expected_data, result[1])
+
+        host = hostvars.keys()[0]
+        extra_vars = {"dump_expression": "{{ 'fake-net1' | net_info }}"}
+        expected_calls = [
+            mock.call(mock.ANY, hosts=None, var_name="inventory_hostname"),
+            mock.call(mock.ANY, host=host, extra_vars=extra_vars),
+        ]
+        self.assertEqual(expected_calls, mock_dump.call_args_list)
+
+    @mock.patch.object(commands.KayobeAnsibleMixin,
+                       "run_kayobe_config_dump")
+    def test_network_ip_list(self, mock_dump):
+        command = commands.NetworkIPList(TestApp(), [])
+        parser = command.get_parser("test")
+        parsed_args = parser.parse_args([])
+        result = command.run(parsed_args)
+        self.assertEqual(0, result)
+
+    @mock.patch.object(commands.KayobeAnsibleMixin,
+                       "run_kayobe_config_dump")
+    def test_network_ip_show(self, mock_dump):
+        command = commands.NetworkIPShow(TestApp(), [])
+        parser = command.get_parser("test")
+        parsed_args = parser.parse_args(["fake-host"])
+        result = command.run(parsed_args)
+        self.assertEqual(0, result)
+
+    @mock.patch.object(commands.KayobeAnsibleMixin,
                        "run_kayobe_playbooks")
     def test_network_connectivity_check(self, mock_run):
         command = commands.NetworkConnectivityCheck(TestApp(), [])

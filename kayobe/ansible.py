@@ -161,7 +161,7 @@ def _read_vault_password_file(vault_password_file):
 
 def run_playbooks(parsed_args, playbooks,
                   extra_vars=None, limit=None, tags=None, quiet=False,
-                  verbose_level=None, check=None):
+                  verbose_level=None, check=None, quiet_errors=True):
     """Run a Kayobe Ansible playbook."""
     _validate_args(parsed_args, playbooks)
     cmd = build_args(parsed_args, playbooks,
@@ -180,7 +180,7 @@ def run_playbooks(parsed_args, playbooks,
     # playbooks.
     env.setdefault(CONFIG_PATH_ENV, parsed_args.config_path)
     try:
-        utils.run_command(cmd, quiet=quiet, env=env)
+        utils.run_command(cmd, quiet=quiet, quiet_errors=quiet_errors, env=env)
     except subprocess.CalledProcessError as e:
         LOG.error("Kayobe playbook(s) %s exited %d",
                   ", ".join(playbooks), e.returncode)
@@ -209,7 +209,8 @@ def config_dump(parsed_args, host=None, hosts=None, var_name=None,
         # results back.
         run_playbook(parsed_args, "ansible/dump-config.yml",
                      extra_vars=extra_vars, tags=tags, quiet=True,
-                     verbose_level=verbose_level, check=False)
+                     verbose_level=verbose_level, check=False,
+                     quiet_errors=False)
         hostvars = {}
         for path in os.listdir(dump_dir):
             LOG.debug("Found dump file %s", path)

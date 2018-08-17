@@ -16,6 +16,8 @@ import json
 import sys
 
 from cliff.command import Command
+from cliff.lister import Lister
+from cliff.show import ShowOne
 
 from kayobe import ansible
 from kayobe import kolla_ansible
@@ -176,6 +178,219 @@ class ConfigurationDump(KayobeAnsibleMixin, VaultMixin, Command):
             self.app.LOG.error("Failed to JSON encode configuration: %s",
                                repr(e))
             sys.exit(1)
+
+
+def _show_allocation_pool(net_info, name="allocation_pool"):
+    start = net_info[name + "_start"]
+    end = net_info[name + "_end"]
+    if start and end:
+        return "-".join((start, end))
+
+
+def _get_network_headings():
+    """Return a tuple of network info headings."""
+    return "Name", "VLAN", "CIDR", "Gateway", "Allocation pool", "MTU"
+
+
+def _get_network_data(net_name, net_info):
+    """Return a tuple of network info data."""
+    return (
+        net_name,
+        net_info["vlan"],
+        net_info["cidr"],
+        net_info["gateway"],
+        _show_allocation_pool(net_info),
+        net_info["mtu"],
+    )
+
+
+class NetworkList(KayobeAnsibleMixin, VaultMixin, Lister):
+    """List Kayobe networks.
+
+    Displays kayobe networks on standard output. The output may be filtered by
+    selecting one or more hosts.
+    """
+
+    def get_parser(self, prog_name):
+        parser = super(NetworkList, self).get_parser(prog_name)
+        group = parser.add_argument_group("Network List")
+        group.add_argument("--hosts",
+                           help="name of hosts and/or groups to list networks "
+                                "for")
+        group.add_argument("--networks",
+                           help="comma-separated list of networks to list. If "
+                                "not specified all networks will be displayed")
+        return parser
+
+    def take_action(self, parsed_args):
+        self.app.LOG.debug("Listing Networks")
+        # List the network interfaces (names of networks) to which each host is
+        # attached.
+        host_interfaces = self.run_kayobe_config_dump(
+            parsed_args, hosts=parsed_args.hosts,
+            var_name="network_interfaces")
+
+        # Determine which networks to display.
+        if parsed_args.networks:
+            # We still list all networks above in order to determine a host to
+            # perform the net_info dump.
+            networks = parsed_args.networks.split(",")
+        else:
+            # Build a sorted list of all networks.
+            networks = set()
+            for host_networks in host_interfaces.values():
+                networks.update(host_networks)
+            networks = sorted(networks)
+
+        # Dump network information for each network, using the first host.
+        networks_json = json.dumps(networks)
+        dump_expression = "{{ %s | map('net_info') | list }}" % networks_json
+        extra_vars = {"dump_expression": dump_expression}
+
+        network_info = self.run_kayobe_config_dump(
+            parsed_args, host=host_interfaces.keys()[0], extra_vars=extra_vars)
+
+        # Return the table in the required cliff Lister format.
+        columns = _get_network_headings()
+        data = (
+            _get_network_data(net, net_info)
+            for net, net_info in zip(networks, network_info)
+        )
+        return (columns, data)
+
+
+class NetworkShow(KayobeAnsibleMixin, VaultMixin, ShowOne):
+    """Show a Kayobe network.
+
+    Displays a kayobe network on standard output. The output may be filtered by
+    selecting one or more hosts.
+    """
+
+    def get_parser(self, prog_name):
+        parser = super(NetworkShow, self).get_parser(prog_name)
+        group = parser.add_argument_group("Network Show")
+        group.add_argument("--hosts",
+                           help="name of hosts and/or groups to list networks "
+                                "for")
+        group.add_argument("network",
+                           help="name of the network to display.")
+        return parser
+
+    def take_action(self, parsed_args):
+        self.app.LOG.debug("Showing a Network")
+
+        # Determine a host to use to dump network configuration.
+        hostvars = self.run_kayobe_config_dump(
+            parsed_args, hosts=parsed_args.hosts,
+            var_name="inventory_hostname")
+
+        # Dump network information for the network, using the first host.
+        dump_expression = "{{ '%s' | net_info }}" % parsed_args.network
+        extra_vars = {"dump_expression": dump_expression}
+        network_info = self.run_kayobe_config_dump(
+            parsed_args, host=hostvars.keys()[0], extra_vars=extra_vars)
+
+        # Return the table in the required cliff ShowOne format.
+        rows = _get_network_headings()
+        data = _get_network_data(parsed_args.network, network_info)
+        return (rows, data)
+
+
+class NetworkIPList(KayobeAnsibleMixin, VaultMixin, Lister):
+    """List Kayobe IP address allocations.
+
+    Displays kayobe IP address allocations on standard output. The output may
+    be filtered by selecting one or more hosts.
+    """
+
+    def get_parser(self, prog_name):
+        parser = super(NetworkIPList, self).get_parser(prog_name)
+        group = parser.add_argument_group("Network IP List")
+        group.add_argument("--hosts",
+                           help="name of hosts and/or groups to list IP "
+                                "addresses for")
+        group.add_argument("--networks",
+                           help="comma-separated list of networks to list IP "
+                                "addresses for. If not specified IP addresses "
+                                "on all networks will be displayed")
+        return parser
+
+    def take_action(self, parsed_args):
+        self.app.LOG.debug("Listing IP Addresses")
+        # Determine which networks to display IP addresses for.
+        if parsed_args.networks:
+            networks = parsed_args.networks.split(",")
+        else:
+            # List the network interfaces (names of networks) to which each
+            # host is attached.
+            host_interfaces = self.run_kayobe_config_dump(
+                parsed_args, hosts=parsed_args.hosts,
+                var_name="network_interfaces")
+            # Build a sorted list of all networks.
+            networks = set()
+            for host_networks in host_interfaces.values():
+                networks.update(host_networks)
+            networks = sorted(networks)
+
+        # Dump IP information for each host.
+        networks_json = json.dumps(networks)
+        dump_expression = "{{ %s | map('net_ip') | list }}" % networks_json
+        extra_vars = {"dump_expression": dump_expression}
+        network_ips = self.run_kayobe_config_dump(
+            parsed_args, hosts=parsed_args.hosts, extra_vars=extra_vars)
+
+        # Return the table in the required cliff Lister format.
+        columns = ["Host"] + networks
+        data = (
+            [host] + network_ips[host]
+            for host in sorted(network_ips)
+        )
+        return (columns, data)
+
+
+class NetworkIPShow(KayobeAnsibleMixin, VaultMixin, ShowOne):
+    """Show Kayobe IP address allocations for a host.
+
+    Displays kayobe IP address allocations on standard output. The output may
+    be filtered by selecting one or more hosts.
+    """
+
+    def get_parser(self, prog_name):
+        parser = super(NetworkIPShow, self).get_parser(prog_name)
+        group = parser.add_argument_group("Network IP")
+        group.add_argument("host",
+                           help="name of host to list IP addresses for")
+        group.add_argument("--networks",
+                           help="comma-separated list of networks to list IP "
+                                "addresses for. If not specified IP addresses "
+                                "on all networks will be displayed")
+        return parser
+
+    def take_action(self, parsed_args):
+        self.app.LOG.debug("Showing IP Addresses")
+        # Determine which networks to display IP addresses for.
+        if parsed_args.networks:
+            networks = parsed_args.networks.split(",")
+        else:
+            # List the network interfaces (names of networks) to which each
+            # host is attached.
+            host_interfaces = self.run_kayobe_config_dump(
+                parsed_args, host=parsed_args.host,
+                var_name="network_interfaces")
+            # Build a sorted list of all networks.
+            networks = sorted(host_interfaces)
+
+        # Dump IP information for each host.
+        networks_json = json.dumps(networks)
+        dump_expression = "{{ %s | map('net_ip') | list }}" % networks_json
+        extra_vars = {"dump_expression": dump_expression}
+        network_ips = self.run_kayobe_config_dump(
+            parsed_args, host=parsed_args.host, extra_vars=extra_vars)
+
+        # Return the table in the required cliff ShowOne format.
+        rows = networks
+        data = network_ips
+        return (rows, data)
 
 
 class PlaybookRun(KayobeAnsibleMixin, VaultMixin, Command):

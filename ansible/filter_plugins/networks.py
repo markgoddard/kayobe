@@ -46,6 +46,9 @@ def net_vip_address(context, name, inventory_hostname=None):
     return net_attr(context, name, 'vip_address', inventory_hostname)
 
 
+net_fqdn = _make_attr_filter('fqdn')
+
+
 @jinja2.contextfilter
 def net_ip(context, name, inventory_hostname=None):
     ips = net_attr(context, name, 'ips', inventory_hostname)
@@ -436,6 +439,41 @@ def net_libvirt_vm_network(context, name, inventory_hostname=None):
     }
 
 
+
+@jinja2.contextfilter
+def net_info(context, name, inventory_hostname=None):
+    info = {
+        "vip_address": net_vip_address(context, name, inventory_hostname),
+        "fqdn": net_fqdn(context, name, inventory_hostname),
+        "ip": net_ip(context, name, inventory_hostname),
+        "interface": net_interface(context, name, inventory_hostname),
+        "cidr": net_cidr(context, name, inventory_hostname),
+        "netmask": net_mask(context, name, inventory_hostname),
+        "prefix": net_prefix(context, name, inventory_hostname),
+        "gateway": net_gateway(context, name, inventory_hostname),
+        "allocation_pool_start": net_allocation_pool_start(context, name, inventory_hostname),
+        "allocation_pool_end": net_allocation_pool_end(context, name, inventory_hostname),
+        "inspection_allocation_pool_start": net_inspection_allocation_pool_start(context, name, inventory_hostname),
+        "inspection_allocation_pool_end": net_inspection_allocation_pool_end(context, name, inventory_hostname),
+        "inspection_gateway": net_inspection_gateway(context, name, inventory_hostname),
+        "neutron_allocation_pool_start": net_neutron_allocation_pool_start(context, name, inventory_hostname),
+        "neutron_allocation_pool_end": net_neutron_allocation_pool_end(context, name, inventory_hostname),
+        "neutron_gateway": net_neutron_gateway(context, name, inventory_hostname),
+        "vlan": net_vlan(context, name, inventory_hostname),
+        "mtu": net_mtu(context, name, inventory_hostname),
+        "routes": net_routes(context, name, inventory_hostname),
+        "rules": net_rules(context, name, inventory_hostname),
+        "physical_network": net_physical_network(context, name, inventory_hostname),
+        "bootproto": net_bootproto(context, name, inventory_hostname),
+        "is_ether": net_is_ether(context, name, inventory_hostname),
+        "is_bridge": net_is_bridge(context, name, inventory_hostname),
+        "is_bond": net_is_bond(context, name, inventory_hostname),
+        "is_vlan": net_is_vlan(context, name, inventory_hostname),
+        "libvirt_network_name": net_libvirt_network_name(context, name, inventory_hostname),
+    }
+    return info
+
+
 class FilterModule(object):
     """Networking filters."""
 
@@ -443,7 +481,7 @@ class FilterModule(object):
         return {
             'net_attr': net_attr,
             'net_vip_address': net_vip_address,
-            'net_fqdn': _make_attr_filter('fqdn'),
+            'net_fqdn': net_fqdn,
             'net_ip': net_ip,
             'net_interface': net_interface,
             'net_cidr': net_cidr,
@@ -480,4 +518,5 @@ class FilterModule(object):
             'net_libvirt_network_name': net_libvirt_network_name,
             'net_libvirt_network': net_libvirt_network,
             'net_libvirt_vm_network': net_libvirt_vm_network,
+            'net_info': net_info,
         }
