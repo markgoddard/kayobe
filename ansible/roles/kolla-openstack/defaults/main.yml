@@ -11,26 +11,17 @@ kolla_node_custom_config_path: /etc/kolla/config
 # Whether to enable ceph.
 kolla_enable_ceph:
 
-# Free form extra configuration to append to ceph.conf.
-kolla_extra_ceph:
-
 ###############################################################################
 # cinder configuration.
 
 # Whether to enable cinder.
 kolla_enable_cinder:
 
-# Free form extra configuration to append to cinder.conf.
-kolla_extra_cinder:
-
 ###############################################################################
 # designate configuration.
 
 # Whether to enable designate.
 kolla_enable_designate:
-
-# Free form extra configuration to append to designate.conf.
-kolla_extra_designate:
 
 ###############################################################################
 # Glance configuration.
@@ -51,17 +42,11 @@ kolla_enable_grafana:
 # Name of the admin user for Grafana.
 grafana_local_admin_user_name:
 
-# Free form extra configuration to append to grafana.ini.
-kolla_extra_grafana:
-
 ###############################################################################
 # Heat configuration.
 
 # Whether to enable Heat.
 kolla_enable_heat:
-
-# Free form extra configuration to append to heat.conf.
-kolla_extra_heat:
 
 ###############################################################################
 # Horizon configuration.
@@ -74,9 +59,6 @@ kolla_enable_horizon:
 
 # Whether to enable InfluxDB.
 kolla_enable_influxdb:
-
-# Free form extra configuration to append to influxdb.conf.
-kolla_extra_influxdb:
 
 ###############################################################################
 # Ironic configuration.
@@ -264,26 +246,17 @@ kolla_extra_ironic_dnsmasq:
 # Whether to enable Kafka.
 kolla_enable_kafka:
 
-# Free form extra configuration to append to kafka.server.properties.
-kolla_extra_kafka:
-
 ###############################################################################
 # Magnum configuration.
 
 # Whether to enable Magnum.
 kolla_enable_magnum:
 
-# Free form extra configuration to append to magnum.conf.
-kolla_extra_magnum:
-
 ###############################################################################
 # MariaDB configuration.
 
 # Whether to enable MariaDB.
 kolla_enable_mariadb:
-
-# Free form extra configuration to append to galera.cnf.
-kolla_extra_mariadb:
 
 ###############################################################################
 # Manila configuration.
@@ -305,9 +278,6 @@ kolla_enable_monasca:
 
 # Whether to enable Murano.
 kolla_enable_murano:
-
-# Free form extra configuration to append to murano.conf.
-kolla_extra_murano:
 
 ###############################################################################
 # Neutron configuration.
@@ -349,9 +319,6 @@ kolla_neutron_ml2_generic_switches: []
 # secret: not currently supported
 kolla_neutron_ml2_generic_switch_hosts: []
 
-# Free form extra configuration to append to neutron.conf.
-kolla_extra_neutron:
-
 # Free form extra configuration to append to ml2_conf.ini.
 kolla_extra_neutron_ml2:
 
@@ -361,17 +328,11 @@ kolla_extra_neutron_ml2:
 # Whether to enable Nova.
 kolla_enable_nova:
 
-# Free form extra configuration to append to nova.conf.
-kolla_extra_nova:
-
 ###############################################################################
 # Sahara configuration.
 
 # Whether to enable sahara.
 kolla_enable_sahara:
-
-# Free form extra configuration to append to sahara.conf.
-kolla_extra_sahara:
 
 ###############################################################################
 # Swift configuration.
@@ -384,6 +345,3 @@ kolla_enable_swift:
 
 # Whether to enable Zookeeper.
 kolla_enable_zookeeper:
-
-# Free form extra configuration to append to zookeeper.cfg.
-kolla_extra_zookeeper:

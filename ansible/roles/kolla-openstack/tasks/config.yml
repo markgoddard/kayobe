@@ -1,4 +1,42 @@
 ---
+# This first section deals with configuration files to which Kayobe adds
+# default configuration.
+
+- name: Check whether Kolla extra configuration files exist
+  stat:
+    path: "{{ kolla_extra_config_path }}/{{ item.file }}"
+    get_checksum: false
+    get_md5: false
+    mime: false
+  register: stat_result
+  with_items:
+    - { name: glance, file: glance.conf }
+    - { name: influxdb, file: influxdb.conf }
+    - { name: inspector, file: ironic-inspector.conf }
+    - { name: ironic, file: ironic.conf }
+    - { name: ironic_dnsmasq, file: ironic/ironic-dnsmasq.conf }
+    - { name: neutron_ml2, file: neutron/ml2_conf.ini }
+
+- name: Initialise a fact containing extra configuration
+  set_fact:
+    kolla_extra_config: {}
+
+- name: Update a fact containing extra configuration
+  set_fact:
+    kolla_extra_config: "{{ kolla_extra_config | combine({item.item.name: lookup('template', '{{ item.stat.path }}')}) }}"
+  with_items: "{{ stat_result.results }}"
+  when: item.stat.exists
+
+- name: Set facts containing extra configuration
+  set_fact:
+    # Extra free-form user-provided configuration.
+    kolla_extra_glance: "{{ kolla_extra_config.glance | default }}"
+    kolla_extra_inspector: "{{ kolla_extra_config.inspector | default }}"
+    kolla_extra_influxdb: "{{ kolla_extra_config.influxdb | default }}"
+    kolla_extra_ironic: "{{ kolla_extra_config.ironic | default }}"
+    kolla_extra_ironic_dnsmasq: "{{ kolla_extra_config.ironic_dnsmasq | default }}"
+    kolla_extra_neutron_ml2: "{{ kolla_extra_config.neutron_ml2 | default }}"
+
 - name: Ensure the Kolla OpenStack configuration directores exist
   file:
     path: "{{ item.dest }}"
@@ -13,28 +51,16 @@
     dest: "{{ kolla_node_custom_config_path }}/{{ item.dest }}"
     mode: 0640
   with_items:
-    - { src: ceph.conf.j2, dest: ceph.conf, enabled: "{{ kolla_enable_ceph }}" }
-    - { src: cinder.conf.j2, dest: cinder.conf, enabled: "{{ kolla_enable_cinder }}" }
-    - { src: designate.conf.j2, dest: designate.conf, enabled: "{{ kolla_enable_designate }}" }
-    - { src: galera.cnf.j2, dest: galera.cnf, enabled: "{{ kolla_enable_mariadb }}" }
     - { src: glance.conf.j2, dest: glance.conf, enabled: "{{ kolla_enable_glance }}" }
-    - { src: grafana.ini.j2, dest: grafana.ini, enabled: "{{ kolla_enable_grafana }}" }
-    - { src: heat.conf.j2, dest: heat.conf, enabled: "{{ kolla_enable_heat }}" }
-    - { src: influxdb.conf.j2, dest: influxdb.conf, enabled: "{{ kolla_enable_influxdb }}" }
     - { src: ironic.conf.j2, dest: ironic.conf, enabled: "{{ kolla_enable_ironic }}" }
     - { src: ironic-dnsmasq.conf.j2, dest: ironic/ironic-dnsmasq.conf, enabled: "{{ kolla_enable_ironic }}" }
     - { src: ironic-inspector.conf.j2, dest: ironic-inspector.conf, enabled: "{{ kolla_enable_ironic }}" }
-    - { src: kafka.server.properties.j2, dest: kafka.server.properties, enabled: "{{ kolla_enable_kafka }}" }
-    - { src: magnum.conf.j2, dest: magnum.conf, enabled: "{{ kolla_enable_magnum }}" }
     - { src: ml2_conf.ini.j2, dest: neutron/ml2_conf.ini, enabled: "{{ kolla_enable_neutron }}" }
-    - { src: murano.conf.j2, dest: murano.conf, enabled: "{{ kolla_enable_murano }}" }
-    - { src: neutron.conf.j2, dest: neutron.conf, enabled: "{{ kolla_enable_neutron }}" }
-    - { src: nova.conf.j2, dest: nova.conf, enabled: "{{ kolla_enable_nova }}" }
     - { src: pxelinux.default.j2, dest: ironic/pxelinux.default, enabled: "{{ kolla_enable_ironic }}" }
     - { src: inspector.ipxe.j2, dest: ironic/inspector.ipxe, enabled: "{{ kolla_enable_ironic_ipxe }}" }
-    - { src: sahara.conf.j2, dest: sahara.conf, enabled: "{{ kolla_enable_sahara }}" }
-    - { src: zookeeper.cfg.j2, dest: zookeeper.cfg, enabled: "{{ kolla_enable_zookeeper }}" }
   when: item.enabled | bool
+
+# Now copy the ironic inspector kernel and ramdisk images into place.
 
 - name: Ensure the ironic inspector kernel and ramdisk are downloaded
   get_url:
@@ -60,6 +86,35 @@
     - kolla_enable_ironic | bool
     - item.path != None
 
+# TODO: comment
+- name: Check whether Kolla extra configuration files exist
+  stat:
+    path: "{{ item.src }}"
+    get_checksum: false
+    get_md5: false
+    mime: false
+  register: stat_src_result
+  with_items: "{{ kolla_openstack_custom_config_files }}"
+
+- name: Ensure extra configuration files exist
+  template:
+    src: "{{ item.item.src }}"
+    dest: "{{ item.item.dest }}"
+    mode: 0640
+  with_items: "{{ stat_src_result.results }}"
+  when: item.stat.exists
+
+# FIXME: files
+- name: Ensure extra configuration parent directories are present
+  file:
+    path: "{{ item.item.dest }}/{{ item.stat.path | relpath(item.item.src) | dirname }}"
+    recurse: true
+    state: directory
+  with_items: "{{ stat_src_result.results }}"
+  when:
+    - item.item.enabled | bool
+    - item.stat.exists
+
 # We support a fairly flexible mechanism of dropping config file templates into
 # an 'extra' config directory, and passing these through to kolla-ansible. We
 # look for matching files in the source directory to template, and also remove
@@ -70,14 +125,14 @@
     path: "{{ item.src }}"
     patterns: "{{ item.patterns }}"
     recurse: true
-  with_items: "{{ kolla_openstack_custom_config }}"
+  with_items: "{{ kolla_openstack_custom_config_dirs }}"
   register: find_src_result
 
 - name: Find previously generated extra configuration files
   find:
     path: "{{ item.dest }}"
     patterns: "{{ item.patterns }}"
-  with_items: "{{ kolla_openstack_custom_config }}"
+  with_items: "{{ kolla_openstack_custom_config_dirs }}"
   register: find_dest_result
 
 - name: Ensure extra configuration parent directories are present
@@ -93,7 +148,7 @@
     - item.0.item.enabled | bool
     - item.1.path | basename not in item.0.item.ignore | default([])
 
-- name: Ensure extra configuration files exist
+- name: Ensure wildcard extra configuration files exist
   template:
     src: "{{ item.1.path }}"
     dest: "{{ item.0.item.dest }}/{{ item.1.path | relpath(item.0.item.src) }}"

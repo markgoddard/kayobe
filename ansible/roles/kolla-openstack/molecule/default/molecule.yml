@@ -16,5 +16,8 @@ scenario:
   name: default
 verifier:
   name: testinfra
+  options:
+    # Run tests in parallel.
+    n: 4
   lint:
     name: flake8

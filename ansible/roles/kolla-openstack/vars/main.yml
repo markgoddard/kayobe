@@ -1,25 +1,96 @@
 ---
+# List of custom configuration files.
+# Each item is a dict containing the following items:
+# src: Path to a configuration file template.
+# dest: Path to file in which generated files will be created.
+# enabled: Whether this file should be templated.
+kolla_openstack_custom_config_files:
+  # Ceph - ceph.conf.
+  - src: "{{ kolla_extra_config_path }}/ceph.conf"
+    dest: "{{ kolla_node_custom_config_path }}/ceph.conf"
+    enabled: "{{ kolla_enable_ceph }}"
+  # Cinder - cinder.conf.
+  - src: "{{ kolla_extra_config_path }}/cinder.conf"
+    dest: "{{ kolla_node_custom_config_path }}/cinder.conf"
+    enabled: "{{ kolla_enable_cinder }}"
+  # Designate - designate.conf.
+  - src: "{{ kolla_extra_config_path }}/designate.conf"
+    dest: "{{ kolla_node_custom_config_path }}/designate.conf"
+    enabled: "{{ kolla_enable_designate }}"
+  # Grafana - grafana.ini.
+  - src: "{{ kolla_extra_config_path }}/grafana.ini"
+    dest: "{{ kolla_node_custom_config_path }}/grafana.ini"
+    enabled: "{{ kolla_enable_grafana }}"
+  # Heat - heat.conf.
+  - src: "{{ kolla_extra_config_path }}/heat.conf"
+    dest: "{{ kolla_node_custom_config_path }}/heat.conf"
+    enabled: "{{ kolla_enable_heat }}"
+  # InfluxDB - influxdb.conf.
+  - src: "{{ kolla_extra_config_path }}/influxdb.conf"
+    dest: "{{ kolla_node_custom_config_path }}/influxdb.conf"
+    enabled: "{{ kolla_enable_influxdb }}"
+  # Kafka - kafka.server.properties.
+  - src: "{{ kolla_extra_config_path }}/kafka.server.properties"
+    dest: "{{ kolla_node_custom_config_path }}/kafka.server.properties"
+    enabled: "{{ kolla_enable_kafka }}"
+  # Keystone - keystone.conf.
+  - src: "{{ kolla_extra_config_path }}/keystone.conf"
+    dest: "{{ kolla_node_custom_config_path }}/keystone.conf"
+    enabled: true
+  # Magnum - magnum.conf.
+  - src: "{{ kolla_extra_config_path }}/magnum.conf"
+    dest: "{{ kolla_node_custom_config_path }}/magnum.conf"
+    enabled: "{{ kolla_enable_magnum }}"
+  # Manila - manila.conf.
+  - src: "{{ kolla_extra_config_path }}/manila.conf"
+    dest: "{{ kolla_node_custom_config_path }}/manila.conf"
+    enabled: "{{ kolla_enable_manila }}"
+  # Mariadb - galera.cnf.
+  - src: "{{ kolla_extra_config_path }}/galera.cnf"
+    dest: "{{ kolla_node_custom_config_path }}/galera.cnf"
+    enabled: "{{ kolla_enable_mariadb }}"
+  # Murano - murano.conf.
+  - src: "{{ kolla_extra_config_path }}/murano.conf"
+    dest: "{{ kolla_node_custom_config_path }}/murano.conf"
+    enabled: "{{ kolla_enable_murano }}"
+  # Neutron - neutron.conf.
+  - src: "{{ kolla_extra_config_path }}/neutron.conf"
+    dest: "{{ kolla_node_custom_config_path }}/neutron.conf"
+    enabled: "{{ kolla_enable_neutron }}"
+  # Nova - nova.conf.
+  - src: "{{ kolla_extra_config_path }}/nova.conf"
+    dest: "{{ kolla_node_custom_config_path }}/nova.conf"
+    enabled: "{{ kolla_enable_nova }}"
+  # Sahara - sahara.conf.
+  - src: "{{ kolla_extra_config_path }}/sahara.conf"
+    dest: "{{ kolla_node_custom_config_path }}/sahara.conf"
+    enabled: "{{ kolla_enable_sahara }}"
+  # Zookeeper - zookeeper.cfg.
+  - src: "{{ kolla_extra_config_path }}/zookeeper.cfg"
+    dest: "{{ kolla_node_custom_config_path }}/zookeeper.cfg"
+    enabled: "{{ kolla_enable_zookeeper }}"
+
 # List of custom configuration directories.
 # Each item is a dict containing the following items:
-# src: Path to directory containing configuration file templates.
+# src: Path to a directory containing configuration file templates.
 # dest: Path to directory in which generated files will be created.
 # patterns: One or more file name patterns to match.
 # enabled: Whether these files should be templated.
 # ignore: Optional list of files to ignore. These files will not be copied to
 #         the destination, and will not be removed from the destination, even
 #         if disabled or unexpected.
-kolla_openstack_custom_config:
-  # Ceph.
+kolla_openstack_custom_config_dirs:
+  # Ceph - ceph/*.
   - src: "{{ kolla_extra_config_path }}/ceph"
     dest: "{{ kolla_node_custom_config_path }}/ceph"
     patterns: "*"
     enabled: "{{ kolla_enable_ceph }}"
-  # Cinder.
+  # Cinder - cinder/*.
   - src: "{{ kolla_extra_config_path }}/cinder"
     dest: "{{ kolla_node_custom_config_path }}/cinder"
     patterns: "*"
     enabled: "{{ kolla_enable_cinder }}"
-  # Designate.
+  # Designate - designate/*.
   - src: "{{ kolla_extra_config_path }}/designate"
     dest: "{{ kolla_node_custom_config_path }}/designate"
     patterns: "*"
@@ -39,12 +110,12 @@ kolla_openstack_custom_config:
     dest: "{{ kolla_node_custom_config_path }}/glance"
     patterns: "*"
     enabled: "{{ kolla_enable_glance }}"
-  # Grafana.
+  # Grafana - grafana/*.
   - src: "{{ kolla_extra_config_path }}/grafana"
     dest: "{{ kolla_node_custom_config_path }}/grafana"
     patterns: "*"
     enabled: "{{ kolla_enable_grafana }}"
-  # Heat.
+  # Heat - heat/*.
   - src: "{{ kolla_extra_config_path }}/heat"
     dest: "{{ kolla_node_custom_config_path }}/heat"
     patterns: "*"
@@ -54,7 +125,7 @@ kolla_openstack_custom_config:
     dest: "{{ kolla_node_custom_config_path }}/horizon"
     patterns: "*"
     enabled: "{{ kolla_enable_horizon }}"
-  # InfluxDB.
+  # InfluxDB - influxdb/*.
   - src: "{{ kolla_extra_config_path }}/influxdb"
     dest: "{{ kolla_node_custom_config_path }}/influxdb"
     patterns: "*"
@@ -71,37 +142,37 @@ kolla_openstack_custom_config:
       - ironic-dnsmasq.conf
       - pxelinux.default
       - inspector.ipxe
-  # Kafka.
+  # Kafka - kafka/*.
   - src: "{{ kolla_extra_config_path }}/kafka"
     dest: "{{ kolla_node_custom_config_path }}/kafka"
     patterns: "*"
     enabled: "{{ kolla_enable_kafka }}"
-  # Keystone.
+  # Keystone - keystone/*.
   - src: "{{ kolla_extra_config_path }}/keystone"
     dest: "{{ kolla_node_custom_config_path }}/keystone"
     patterns: "*"
     enabled: true
-  # Magnum.
+  # Magnum - magnum/*.
   - src: "{{ kolla_extra_config_path }}/magnum"
     dest: "{{ kolla_node_custom_config_path }}/magnum"
     patterns: "*"
     enabled: "{{ kolla_enable_magnum }}"
-  # Manila.
+  # Manila - manila/*.
   - src: "{{ kolla_extra_config_path }}/manila"
     dest: "{{ kolla_node_custom_config_path }}/manila"
     patterns: "*"
     enabled: "{{ kolla_enable_manila }}"
-  # MariaDB.
+  # MariaDB - mariadb/*.
   - src: "{{ kolla_extra_config_path }}/mariadb"
     dest: "{{ kolla_node_custom_config_path }}/mariadb"
     patterns: "*"
     enabled: "{{ kolla_enable_mariadb }}"
-  # Murano.
+  # Murano - murano/*.
   - src: "{{ kolla_extra_config_path }}/murano"
     dest: "{{ kolla_node_custom_config_path }}/murano"
     patterns: "*"
     enabled: "{{ kolla_enable_murano }}"
-  # Neutron.
+  # Neutron - neutron/*.
   - src: "{{ kolla_extra_config_path }}/neutron"
     dest: "{{ kolla_node_custom_config_path }}/neutron"
     patterns: "*"
@@ -109,22 +180,22 @@ kolla_openstack_custom_config:
     ignore:
       # These are templated by kayobe, so don't remove them.
       - ml2_conf.ini
-  # Nova.
+  # Nova - nova/*.
   - src: "{{ kolla_extra_config_path }}/nova"
     dest: "{{ kolla_node_custom_config_path }}/nova"
     patterns: "*"
     enabled: "{{ kolla_enable_nova }}"
-  # Sahara.
+  # Sahara - sahara/*.
   - src: "{{ kolla_extra_config_path }}/sahara"
     dest: "{{ kolla_node_custom_config_path }}/sahara"
     patterns: "*"
     enabled: "{{ kolla_enable_sahara }}"
-  # Swift.
+  # Swift - swift/*.
   - src: "{{ kolla_extra_config_path }}/swift"
     dest: "{{ kolla_node_custom_config_path }}/swift"
     patterns: "*"
     enabled: "{{ kolla_enable_swift }}"
-  # Zookeeper.
+  # Zookeeper - zookeeper/*.
   - src: "{{ kolla_extra_config_path }}/zookeeper"
     dest: "{{ kolla_node_custom_config_path }}/zookeeper"
     patterns: "*"
