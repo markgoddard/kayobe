@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import getpass
 import os
 import subprocess
 
@@ -19,6 +20,16 @@ from kayobe import utils
 
 
 VAULT_PASSWORD_ENV = "KAYOBE_VAULT_PASSWORD"
+
+
+def _get_vault_password_helper():
+    """Return the path to the kayobe-vault-password-helper executable."""
+    cmd = ["which", "kayobe-vault-password-helper"]
+    try:
+        output = utils.run_command(cmd, check_output=True)
+    except subprocess.CalledProcessError:
+        return None
+    return output.strip()
 
 
 def _get_default_vault_password_file():
@@ -29,12 +40,7 @@ def _get_default_vault_password_file():
     """
     if not os.getenv(VAULT_PASSWORD_ENV):
         return None
-    cmd = ["which", "kayobe-vault-password-helper"]
-    try:
-        output = utils.run_command(cmd, check_output=True)
-    except subprocess.CalledProcessError:
-        return None
-    return output.strip()
+    return _get_vault_password_helper()
 
 
 def add_args(parser):
@@ -48,11 +54,62 @@ def add_args(parser):
                        help="vault password file")
 
 
-def build_args(parsed_args):
+def build_args(parsed_args, password_file_arg_name):
     """Build a list of command line arguments for use with ansible-playbook."""
-    cmd = []
+    vault_password_file = None
     if parsed_args.ask_vault_pass:
-        cmd += ["--ask-vault-pass"]
+        vault_password_file = _get_vault_password_helper()
     elif parsed_args.vault_password_file:
-        cmd += ["--vault-password-file", parsed_args.vault_password_file]
+        vault_password_file = parsed_args.vault_password_file
+
+    cmd = []
+    if vault_password_file:
+        cmd += [password_file_arg_name, vault_password_file]
     return cmd
+
+
+def _ask_vault_pass():
+    """Prompt the user for a Vault password.
+
+    The first time this function is called, the user is prompted for a
+    password. To avoid prompting the user multiple times per invocation of
+    kayobe, we cache the password and return it without prompting on subsequent
+    calls.
+
+    :return: The password entered by the user.
+    """
+    if not hasattr(_ask_vault_pass, "password"):
+        password = getpass.getpass("Vault password: ")
+        setattr(_ask_vault_pass, "password", password)
+    return getattr(_ask_vault_pass, "password")
+
+
+def _read_vault_password_file(vault_password_file):
+    """Return the password from a vault password file."""
+    vault_password = utils.read_file(vault_password_file)
+    vault_password = vault_password.strip()
+    return vault_password
+
+
+def update_environment(parsed_args, env):
+    """Update environment variables with the vault password if necessary.
+
+    :param parsed_args: Parsed command line arguments.
+    :params env: Dict of environment variables to update.
+    """
+    # If the Vault password has been specified via --vault-password-file, or a
+    # prompt has been requested via --ask-vault-pass, ensure the environment
+    # variable is set, so that it can be referenced by playbooks to generate
+    # the kolla-ansible passwords.yml file.
+    if VAULT_PASSWORD_ENV in env:
+        return
+
+    vault_password = None
+    if parsed_args.ask_vault_pass:
+        vault_password = _ask_vault_pass()
+    elif parsed_args.vault_password_file:
+        vault_password = _read_vault_password_file(
+            parsed_args.vault_password_file)
+
+    if vault_password is not None:
+        env[VAULT_PASSWORD_ENV] = vault_password

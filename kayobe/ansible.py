@@ -124,7 +124,7 @@ def build_args(parsed_args, playbooks,
         cmd += ["-" + "v" * verbose_level]
     if parsed_args.list_tasks:
         cmd += ["--list-tasks"]
-    cmd += vault.build_args(parsed_args)
+    cmd += vault.build_args(parsed_args, "--vault-password-file")
     inventory = _get_inventory_path(parsed_args)
     cmd += ["--inventory", inventory]
     vars_files = _get_vars_files(parsed_args.config_path)
@@ -152,13 +152,6 @@ def build_args(parsed_args, playbooks,
     return cmd
 
 
-def _read_vault_password_file(vault_password_file):
-    """Return the password from a vault password file."""
-    vault_password = utils.read_file(vault_password_file)
-    vault_password = vault_password.strip()
-    return vault_password
-
-
 def run_playbooks(parsed_args, playbooks,
                   extra_vars=None, limit=None, tags=None, quiet=False,
                   verbose_level=None, check=None):
@@ -168,13 +161,7 @@ def run_playbooks(parsed_args, playbooks,
                      extra_vars=extra_vars, limit=limit, tags=tags,
                      verbose_level=verbose_level, check=check)
     env = os.environ.copy()
-    # If the Vault password has been specified via --vault-password-file,
-    # ensure the environment variable is set, so that it can be referenced by
-    # playbooks to generate the kolla-ansible passwords.yml file.
-    if vault.VAULT_PASSWORD_ENV not in env and parsed_args.vault_password_file:
-        vault_password = _read_vault_password_file(
-            parsed_args.vault_password_file)
-        env[vault.VAULT_PASSWORD_ENV] = vault_password
+    vault.update_environment(parsed_args, env)
     # If the configuration path has been specified via --config-path, ensure
     # the environment variable is set, so that it can be referenced by
     # playbooks.
