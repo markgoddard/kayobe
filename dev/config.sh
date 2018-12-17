@@ -23,3 +23,4 @@
 
 # Additional arguments to pass to kayobe commands.
 #export KAYOBE_EXTRA_ARGS=
+export KAYOBE_SEED_VM_PROVISION=0
