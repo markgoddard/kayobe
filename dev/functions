@@ -1,0 +1,603 @@
+#!/bin/bash
+
+set -eu
+set -o pipefail
+
+# Library of functions for the kayobe development environment.
+
+# Configuration
+
+function config_defaults {
+    # Set default values for kayobe development configuration.
+
+    # Try to detect if we are running in a vagrant VM.
+    if [[ -e /vagrant ]]; then
+        KAYOBE_SOURCE_PATH_DEFAULT=/vagrant
+    else
+        KAYOBE_SOURCE_PATH_DEFAULT="$(pwd)"
+    fi
+
+    # Path to the kayobe source code repository. Typically this will be the
+    # Vagrant shared directory.
+    export KAYOBE_SOURCE_PATH="${KAYOBE_SOURCE_PATH:-$KAYOBE_SOURCE_PATH_DEFAULT}"
+
+    # Path to the kayobe-config repository checkout.
+    export KAYOBE_CONFIG_SOURCE_PATH="${KAYOBE_CONFIG_SOURCE_PATH:-${KAYOBE_SOURCE_PATH}/config/src/kayobe-config}"
+
+    # Path to the kayobe virtual environment.
+    export KAYOBE_VENV_PATH="${KAYOBE_VENV_PATH:-${HOME}/kayobe-venv}"
+
+    # Path to the Tenks virtual environment.
+    export TENKS_VENV_PATH="${TENKS_VENV_PATH:-${HOME}/tenks-test-venv}"
+
+    # Whether to provision a VM for the seed host.
+    export KAYOBE_SEED_VM_PROVISION=${KAYOBE_SEED_VM_PROVISION:-1}
+
+    # Whether to build container images for the seed services. If 0, they will
+    # be pulled.
+    export KAYOBE_SEED_CONTAINER_IMAGE_BUILD=${KAYOBE_SEED_CONTAINER_IMAGE_BUILD:-0}
+
+    # Whether to build container images for the overcloud services. If 0, they
+    # will be pulled.
+    export KAYOBE_OVERCLOUD_CONTAINER_IMAGE_BUILD=${KAYOBE_OVERCLOUD_CONTAINER_IMAGE_BUILD:-0}
+
+    # Additional arguments to pass to kayobe commands.
+    export KAYOBE_EXTRA_ARGS=${KAYOBE_EXTRA_ARGS:-}
+}
+
+function config_set {
+    # Source the configuration file, config.sh
+
+    PARENT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    source "${PARENT}/config.sh"
+}
+
+function config_check {
+    # Check the configuration environment variables.
+
+    if [[ ! -e "$KAYOBE_CONFIG_SOURCE_PATH" ]]; then
+        if [[ ${KAYOBE_CONFIG_REQUIRED:-1} -eq 1 ]]; then
+            echo "Kayobe configuration path $KAYOBE_CONFIG_SOURCE_PATH does not exist"
+            return 1
+        fi
+    fi
+
+    if [[ ! -e "$KAYOBE_SOURCE_PATH" ]]; then
+        echo "Kayobe source path $KAYOBE_SOURCE_PATH does not exist"
+        return 1
+    fi
+}
+
+function config_init {
+    config_defaults
+    config_set
+    config_check
+}
+
+# Installation
+
+function install_dependencies {
+    echo "Installing package dependencies for kayobe"
+    if [[ -e /etc/centos-release ]]; then
+        sudo yum -y install gcc git vim python-virtualenv
+    else
+        sudo apt install -y python-dev python-virtualenv gcc git
+    fi
+}
+
+function install_venv {
+    # Install a virtualenv at $1. Install all the packages in proceeding
+    # arguments using pip.
+    venv_path="$1"
+    shift
+    pip_paths="$@"
+    local venv_parent="$(dirname ${venv_path})"
+    if [[ ! -d "$venv_parent" ]]; then
+        mkdir -p "$venv_parent"
+    fi
+    if [[ ! -f "${venv_path}/bin/activate" ]]; then
+        echo "Creating virtual environment in ${venv_path}"
+        virtualenv "${venv_path}"
+        # NOTE: Virtualenv's activate and deactivate scripts reference an
+        # unbound variable.
+        set +u
+        source "${venv_path}/bin/activate"
+        pip install -U pip
+        pip install $pip_paths
+        deactivate
+        set -u
+    else
+        echo "Using existing virtual environment in ${venv_path}"
+    fi
+}
+
+function install_kayobe_venv {
+    # Install the Kayobe venv.
+    install_venv "${KAYOBE_VENV_PATH}" "${KAYOBE_SOURCE_PATH}"
+}
+
+function upgrade_kayobe_venv {
+    echo "Upgrading kayobe virtual environment in ${KAYOBE_VENV_PATH}"
+    virtualenv "${KAYOBE_VENV_PATH}"
+    # NOTE: Virtualenv's activate and deactivate scripts reference an
+    # unbound variable.
+    set +u
+    source "${KAYOBE_VENV_PATH}/bin/activate"
+    pip install -U pip
+    pip install -U "${KAYOBE_SOURCE_PATH}"
+    deactivate
+    set -u
+}
+
+# Deployment
+
+function is_deploy_image_built_locally {
+    ipa_build_images=$(kayobe configuration dump --host controllers[0] --var-name ipa_build_images)
+    [[ $ipa_build_images =~ ^true$ ]]
+}
+
+function environment_setup {
+    # NOTE: Virtualenv's activate script references an unbound variable.
+    set +u
+    source "${KAYOBE_VENV_PATH}/bin/activate"
+    set -u
+    source "${KAYOBE_CONFIG_SOURCE_PATH}/kayobe-env"
+
+    cd "${KAYOBE_SOURCE_PATH}"
+}
+
+function run_kayobe {
+    # Run a kayobe command, including extra arguments provided via
+    # $KAYOBE_EXTRA_ARGS.
+    kayobe ${KAYOBE_EXTRA_ARGS} $*
+}
+
+function seed_hypervisor_deploy {
+    # Deploy a seed hypervisor.
+    environment_setup
+
+    echo "Bootstrapping the Ansible control host"
+    run_kayobe control host bootstrap
+
+    echo "Configuring the seed hypervisor"
+    run_kayobe seed hypervisor host configure
+}
+
+function seed_deploy {
+    # Deploy a kayobe seed in a VM.
+    environment_setup
+
+    echo "Bootstrapping the Ansible control host"
+    run_kayobe control host bootstrap
+
+    if [[ ${KAYOBE_SEED_VM_PROVISION} = 1 ]]; then
+        echo "Provisioning the seed VM"
+        run_kayobe seed vm provision
+    fi
+
+    echo "Configuring the seed host"
+    run_kayobe seed host configure
+
+    # Note: This must currently be before host configure, because host
+    # configure runs kolla-ansible.yml, which validates the presence of the
+    # built deploy images.
+    if is_deploy_image_built_locally; then
+        echo "Building seed deployment images"
+        run_kayobe seed deployment image build
+    else
+        echo "Not building seed deployment images"
+    fi
+
+    if [[ ${KAYOBE_SEED_CONTAINER_IMAGE_BUILD} = 1 ]]; then
+        echo "Building seed container images"
+        run_kayobe seed container image build
+    else
+        echo "Not pulling seed container images - no such command yet"
+        #run_kayobe seed container image pull
+    fi
+
+    echo "Deploying containerised seed services"
+    run_kayobe seed service deploy
+}
+
+function overcloud_deploy {
+    # Deploy a kayobe control plane.
+    echo "Deploying a kayobe development environment. This consists of a "
+    echo "single node OpenStack control plane."
+
+    environment_setup
+
+    echo "Bootstrapping the Ansible control host"
+    for i in $(seq 1 3); do
+        if run_kayobe control host bootstrap; then
+            chb_success=1
+            break
+        fi
+        echo "Control host bootstrap failed - likely Ansible Galaxy flakiness. Retrying"
+    done
+    if [[ -z ${chb_success+x} ]]; then
+        echo "Failed to bootstrap control host"
+        exit 1
+    fi
+    echo "Bootstrapped control host after $i attempts"
+
+    echo "Configuring the controller host"
+    run_kayobe overcloud host configure
+
+    # FIXME(mgoddard): Perform host upgrade workarounds to ensure hostname
+    # resolves to IP address of API interface for RabbitMQ. This seems to be
+    # required since https://review.openstack.org/#/c/584427 was merged.
+    echo "Workaround: upgrading the controller host"
+    run_kayobe overcloud host upgrade
+
+    # Note: This must currently be before host configure, because host
+    # configure runs kolla-ansible.yml, which validates the presence of the
+    # built deploy images.
+    if is_deploy_image_built_locally; then
+        echo "Building overcloud deployment images"
+        run_kayobe overcloud deployment image build
+    else
+        echo "Not building overcloud deployment images"
+    fi
+
+    if [[ ${KAYOBE_OVERCLOUD_CONTAINER_IMAGE_BUILD} = 1 ]]; then
+        echo "Building overcloud container images"
+        run_kayobe overcloud container image build
+    else
+        echo "Pulling overcloud container images"
+        run_kayobe overcloud container image pull
+    fi
+
+    echo "Deploying containerised overcloud services"
+    run_kayobe overcloud service deploy
+
+    echo "Performing post-deployment configuration"
+    source "${KOLLA_CONFIG_PATH:-/etc/kolla}/admin-openrc.sh"
+    run_kayobe overcloud post configure
+
+    echo "Control plane deployment complete"
+}
+
+function overcloud_upgrade {
+    # Upgrade a kayobe control plane.
+    echo "Upgrading a kayobe development environment. This consists of a "
+    echo "single node OpenStack control plane."
+
+    echo "Upgrading Kayobe"
+    upgrade_kayobe_venv
+
+    environment_setup
+
+    echo "Upgrading the Ansible control host"
+    for i in $(seq 1 3); do
+        if run_kayobe control host upgrade; then
+            chu_success=1
+            break
+        fi
+        echo "Control host upgrade failed - likely Ansible Galaxy flakiness. Retrying"
+    done
+    if [[ -z ${chu_success+x} ]]; then
+        echo "Failed to upgrade control host"
+        exit 1
+    fi
+    echo "Upgraded control host after $i attempts"
+
+    echo "Upgrading the controller host"
+    run_kayobe overcloud host upgrade
+
+    if is_deploy_image_built_locally; then
+        echo "Building overcloud deployment images"
+        run_kayobe overcloud deployment image build --force-rebuild
+    else
+        echo "Not building overcloud deployment images"
+    fi
+
+    if [[ ${KAYOBE_OVERCLOUD_CONTAINER_IMAGE_BUILD} = 1 ]]; then
+        echo "Building overcloud container images"
+        run_kayobe overcloud container image build
+    else
+        echo "Pulling overcloud container images"
+        run_kayobe overcloud container image pull
+    fi
+
+    echo "Saving overcloud service configuration"
+    if ! run_kayobe overcloud service configuration save; then
+        # NOTE(mgoddard): This fails in CI due to a memory error while copying
+        # the IPA deployment images.
+        echo "FIXME: Saving service configuration failed. Ignoring for now"
+    fi
+
+    echo "Deploying containerised overcloud services"
+    run_kayobe overcloud service upgrade
+
+    echo "Control plane upgrade complete"
+}
+
+function overcloud_test_init {
+
+    echo "Performing overcloud test init"
+    environment_setup
+
+    pip install python-openstackclient
+    source "${KOLLA_CONFIG_PATH:-/etc/kolla}/admin-openrc.sh"
+
+    # This guards init-runonce from running more than once
+    if mkdir /tmp/init-runonce > /dev/null 2>&1; then
+        echo "Running kolla-ansible init-runonce"
+        ${KOLLA_VENV_PATH:-$HOME/kolla-venv}/share/kolla-ansible/init-runonce
+    else
+        echo "Not running kolla-ansible init-runonce - resources exist"
+    fi
+}
+
+function overcloud_test {
+    set -eu
+
+    # function arguments
+    name="$1"
+    flavor="$2"
+    network="$3"
+
+    node_config="{ 'name': '$name', 'flavor': '$flavor', 'network': '$network' }"
+
+    overcloud_test_init
+
+    # Perform a simple smoke test against the cloud.
+    echo "Performing a simple smoke test with node config: $node_config"
+
+    echo "$name: Creating a server"
+    openstack server create --wait --image cirros --flavor "$flavor" --key-name mykey --network "$network" "$name"
+    echo "$name: Server created"
+    openstack server show "$name"
+    status=$(openstack server show "$name" -f value -c status)
+    if [[ $status != ACTIVE ]]; then
+        echo "$name: Node creation failed"
+        return 1
+    fi
+    # TODO(mgoddard): Test SSH connectivity to the VM.
+
+    echo "$name: Deleting the Node"
+    openstack server delete --wait "$name"
+}
+
+function tenks_deploy {
+    set -eu
+    # Create a simple test Tenks deployment. Assumes that a bridge named
+    # 'breth1' exists.  Arguments:
+    # $1: The path to the Tenks repo.
+    local tenks_path="$1"
+
+    echo "Configuring Tenks"
+
+    environment_setup
+
+    # We don't want to use the Kayobe venv.
+    deactivate
+
+    # Install the Tenks venv.
+    install_venv "${TENKS_VENV_PATH}" "$tenks_path"
+    source ${TENKS_VENV_PATH:-$HOME/tenks-test-venv}/bin/activate
+
+    ansible-galaxy install \
+        --role-file="$tenks_path/requirements.yml" \
+        --roles-path="$tenks_path/ansible/roles/"
+
+    local parent="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    # Install a trivial script for ovs-vsctl that talks to containerised Open
+    # vSwitch.
+    sudo cp --no-clobber "$parent/ovs-vsctl" /usr/bin/ovs-vsctl
+
+    if [[ -f "${KOLLA_CONFIG_PATH:-/etc/kolla}/admin-openrc.sh" ]]; then
+        source "${KOLLA_CONFIG_PATH:-/etc/kolla}/admin-openrc.sh"
+    else
+        mkdir -p ~/.config/openstack
+        cat << EOF > ~/.config/openstack/clouds.yaml
+clouds:
+  bifrost:
+    auth_type: "none"
+    endpoint: http://localhost:6385
+EOF
+        export OS_CLOUD=bifrost
+    fi
+
+    pip install python-openstackclient
+
+    ansible-playbook \
+        -vvv \
+        --inventory "$tenks_path/ansible/inventory" \
+        --extra-vars=@"$parent/tenks-deploy-config-overcloud.yml" \
+        "$tenks_path/ansible/deploy.yml"
+}
+
+function tenks_teardown {
+    set -eu
+    # Tear down a test Tenks deployment.
+    # Arguments:
+    # $1: The path to the Tenks repo.
+    local tenks_path="$1"
+
+    echo "Tearing down Tenks"
+
+    environment_setup
+
+    # We don't want to use the Kayobe venv.
+    deactivate
+
+    # Source the Tenks venv.
+    source ${TENKS_VENV_PATH:-$HOME/tenks-test-venv}/bin/activate
+
+    local parent="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    if [[ -f "${KOLLA_CONFIG_PATH:-/etc/kolla}/admin-openrc.sh" ]]; then
+        source "${KOLLA_CONFIG_PATH:-/etc/kolla}/admin-openrc.sh"
+    else
+        mkdir -p ~/.config/openstack
+        cat << EOF > ~/.config/openstack/clouds.yaml
+clouds:
+  bifrost:
+    auth_type: "none"
+    endpoint: http://localhost:6385
+EOF
+        export OS_CLOUD=bifrost
+    fi
+
+    ansible-playbook \
+        -vvv \
+        --inventory "$tenks_path/ansible/inventory" \
+        --extra-vars=@"$parent/tenks-deploy-config-overcloud.yml" \
+        "$tenks_path/ansible/teardown.yml"
+}
+
+# General purpose
+
+# Prints backtrace info
+# filename:lineno:function
+# backtrace level
+function backtrace {
+    local level=$1
+    local deep
+    deep=$((${#BASH_SOURCE[@]} - 1))
+    echo "[Call Trace]"
+    while [ $level -le $deep ]; do
+        echo "${BASH_SOURCE[$deep]}:${BASH_LINENO[$deep-1]}:${FUNCNAME[$deep-1]}"
+        deep=$((deep - 1))
+    done
+}
+
+# Prints line number and "message" then exits
+# die $LINENO "message"
+function die {
+    local exitcode=$?
+    set +o xtrace
+    local line=$1; shift
+    if [ $exitcode == 0 ]; then
+        exitcode=1
+    fi
+    backtrace 2
+    err $line "$*"
+    # Give buffers a second to flush
+    sleep 1
+    exit $exitcode
+}
+
+
+# Prints line number and "message" in error format
+# err $LINENO "message"
+function err {
+    local exitcode=$?
+    local xtrace
+    xtrace=$(set +o | grep xtrace)
+    set +o xtrace
+    local msg="[ERROR] ${BASH_SOURCE[2]}:$1 $2"
+    echo "$msg" 1>&2;
+    if [[ -n ${LOGDIR} ]]; then
+        echo "$msg" >> "${LOGDIR}/error.log"
+    fi
+    $xtrace
+    return $exitcode
+}
+
+
+function die_if_module_not_loaded {
+    if ! grep -q $1 /proc/modules; then
+        die $LINENO "$1 kernel module is not loaded"
+    fi
+}
+
+# running_in_container - Returns true otherwise false
+function running_in_container {
+    [[ $(systemd-detect-virt --container) != 'none' ]]
+}
+
+# enable_kernel_bridge_firewall - Enable kernel support for bridge firewalling
+function enable_kernel_bridge_firewall {
+    # Load bridge module. This module provides access to firewall for bridged
+    # frames; and also on older kernels (pre-3.18) it provides sysctl knobs to
+    # enable/disable bridge firewalling
+    sudo modprobe bridge
+    # For newer kernels (3.18+), those sysctl settings are split into a separate
+    # kernel module (br_netfilter). Load it too, if present.
+    sudo modprobe br_netfilter 2>> /dev/null || :
+    # Enable bridge firewalling in case it's disabled in kernel (upstream
+    # default is enabled, but some distributions may decide to change it).
+    # This is at least needed for RHEL 7.2 and earlier releases.
+    for proto in ip ip6; do
+        sudo sysctl -w net.bridge.bridge-nf-call-${proto}tables=1
+    done
+}
+
+function to_bool {
+    if [[ "$1" =~ (y|Y|yes|Yes|YES|true|True|TRUE|on|On|ON) ]]; then
+        true
+    elif [[ "$1" =~ (n|N|no|No|NO|false|False|FALSE|off|Off|OFF) ]]; then
+        false
+    else
+        die $LINENO "$1 was not a valid yaml boolean"
+    fi
+}
+
+function is_ipxe_enabled {
+    flag="$(run_kayobe configuration dump --host controllers[0] --var-name kolla_enable_ironic_ipxe)"
+    to_bool "$flag"
+}
+
+function is_cinder_enabled {
+    flag="$(run_kayobe configuration dump --host controllers[0] --var-name kolla_enable_cinder)"
+    to_bool "$flag"
+}
+
+function configure_iptables {
+    # NOTE(wszumski): adapted from the ironic devstack plugin, see:
+    # https://github.com/openstack/ironic/blob/36e87dc5b472d79470b783fbba9ce396e3cbb96e/devstack/lib/ironic#L2132
+
+    set -eu
+    environment_setup
+
+    # FIXME(wszumski): set these variables with values from kayobe-config
+    HOST_IP='192.168.33.3'
+    INTERNAL_VIP='192.168.33.2'
+    IRONIC_TFTPSERVER_IP="$HOST_IP"
+    IRONIC_SERVICE_PORT=6385
+    IRONIC_INSPECTOR_PORT=5050
+    IRONIC_HTTP_SERVER="$INTERNAL_VIP"
+    GLANCE_SERVICE_PORT=9292
+    IRONIC_HTTP_PORT=8089
+    ISCSI_SERVICE_PORT=3260
+
+    # enable tftp natting for allowing connections to HOST_IP's tftp server
+    if ! running_in_container; then
+        sudo modprobe nf_conntrack_tftp
+        sudo modprobe nf_nat_tftp
+
+        enable_kernel_bridge_firewall
+    else
+        die_if_module_not_loaded nf_conntrack_tftp
+        die_if_module_not_loaded nf_nat_tftp
+    fi
+    # explicitly allow DHCP - packets are occasionally being dropped here
+    sudo iptables -I INPUT -p udp --dport 67:68 --sport 67:68 -j ACCEPT || true
+    # nodes boot from TFTP and callback to the API server listening on $HOST_IP
+    sudo iptables -I INPUT -d $IRONIC_TFTPSERVER_IP -p udp --dport 69 -j ACCEPT || true
+
+    sudo iptables -I INPUT -d $HOST_IP -p tcp --dport $IRONIC_SERVICE_PORT -j ACCEPT || true
+    # open ironic API on baremetal network
+    sudo iptables -I INPUT -d $IRONIC_HTTP_SERVER -p tcp --dport $IRONIC_SERVICE_PORT -j ACCEPT || true
+    # allow IPA to connect to ironic API
+    sudo iptables -I FORWARD -p tcp --dport $IRONIC_SERVICE_PORT -j ACCEPT || true
+    # allow IPA to connect to ironic inspector
+    sudo iptables -I FORWARD -p tcp --dport $IRONIC_INSPECTOR_PORT -j ACCEPT || true
+
+    # agent ramdisk gets instance image from swift
+    sudo iptables -I INPUT -d $INTERNAL_VIP -p tcp --dport ${SWIFT_DEFAULT_BIND_PORT:-8080} -j ACCEPT || true
+    sudo iptables -I INPUT -d $INTERNAL_VIP -p tcp --dport $GLANCE_SERVICE_PORT -j ACCEPT || true
+
+    if is_ipxe_enabled; then
+        sudo iptables -I INPUT -d $HOST_IP -p tcp --dport $IRONIC_HTTP_PORT -j ACCEPT || true
+    fi
+
+    if is_cinder_enabled; then
+        sudo iptables -I INPUT -d $HOST_IP -p tcp --dport $ISCSI_SERVICE_PORT -j ACCEPT || true
+    fi
+}
