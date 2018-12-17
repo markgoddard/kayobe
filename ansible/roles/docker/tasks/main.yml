@@ -47,7 +47,7 @@
 - name: Find persistent SSH connection control sockets
   local_action:
     module: find
-    file_type: any
+    file_type: file
     path: "~/.ansible/cp/"
     patterns: '[a-f0-9]{10}'
     use_regex: True
