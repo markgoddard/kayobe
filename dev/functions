@@ -389,15 +389,65 @@ function tenks_deploy {
     # vSwitch.
     sudo cp --no-clobber "$parent/ovs-vsctl" /usr/bin/ovs-vsctl
 
-    source "${KOLLA_CONFIG_PATH:-/etc/kolla}/admin-openrc.sh"
+    if [[ -f "${KOLLA_CONFIG_PATH:-/etc/kolla}/admin-openrc.sh" ]]; then
+        source "${KOLLA_CONFIG_PATH:-/etc/kolla}/admin-openrc.sh"
+    else
+        mkdir -p ~/.config/openstack
+        cat << EOF > ~/.config/openstack/clouds.yaml
+clouds:
+  bifrost:
+    auth_type: "none"
+    endpoint: http://localhost:6385
+EOF
+        export OS_CLOUD=bifrost
+    fi
 
     pip install python-openstackclient
 
     ansible-playbook \
         -vvv \
         --inventory "$tenks_path/ansible/inventory" \
-        --extra-vars=@"$parent/tenks-deploy-config.yml" \
+        --extra-vars=@"$parent/tenks-deploy-config-overcloud.yml" \
         "$tenks_path/ansible/deploy.yml"
+}
+
+function tenks_teardown {
+    set -eu
+    # Tear down a test Tenks deployment.
+    # Arguments:
+    # $1: The path to the Tenks repo.
+    local tenks_path="$1"
+
+    echo "Tearing down Tenks"
+
+    environment_setup
+
+    # We don't want to use the Kayobe venv.
+    deactivate
+
+    # Source the Tenks venv.
+    source ${TENKS_VENV_PATH:-$HOME/tenks-test-venv}/bin/activate
+
+    local parent="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    if [[ -f "${KOLLA_CONFIG_PATH:-/etc/kolla}/admin-openrc.sh" ]]; then
+        source "${KOLLA_CONFIG_PATH:-/etc/kolla}/admin-openrc.sh"
+    else
+        mkdir -p ~/.config/openstack
+        cat << EOF > ~/.config/openstack/clouds.yaml
+clouds:
+  bifrost:
+    auth_type: "none"
+    endpoint: http://localhost:6385
+EOF
+        export OS_CLOUD=bifrost
+    fi
+
+    ansible-playbook \
+        -vvv \
+        --inventory "$tenks_path/ansible/inventory" \
+        --extra-vars=@"$parent/tenks-deploy-config-overcloud.yml" \
+        "$tenks_path/ansible/teardown.yml"
 }
 
 # General purpose
