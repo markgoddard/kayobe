@@ -16,7 +16,7 @@ node_types:
 
 specs:
   - type: type0
-    count: 1
+    count: 3
     ironic_config:
       resource_class: test-rc
       network_interface: noop
