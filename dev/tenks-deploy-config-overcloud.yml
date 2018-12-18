@@ -16,12 +16,10 @@ node_types:
 
 specs:
   - type: type0
-    count: 1
+    count: 4
     ironic_config:
       resource_class: test-rc
       network_interface: noop
-
-default_ironic_driver: agent_ipmitool
 
 #ipmi_address: 192.168.33.5
 
