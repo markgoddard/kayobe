@@ -1,13 +1,6 @@
-===================
-Configuration Guide
-===================
+Kayobe
+======
 
-.. toctree::
-   :maxdepth: 2
+Kayobe’s documentation has moved from ReadTheDocs to docs.openstack.org.
 
-   kayobe
-   physical-network
-   network
-   hosts
-   kolla
-   kolla-ansible
+This page can be viewed at https://docs.openstack.org/kayobe/latest/configuration/index.html.

@@ -26,7 +26,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from kayobe.version import version_info as kayobe_version
 import os
 import sys
 
@@ -64,9 +63,9 @@ copyright = u'2013, OpenStack Foundation'
 #
 # The short X.Y version.
 # The full version, including alpha/beta/rc tags.
-release = kayobe_version.version_string_with_vcs()
+release = "6.0.0"
 # The short X.Y version.
-version = kayobe_version.canonical_version_string()
+version = "6.0"
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
 add_function_parentheses = True

@@ -1,14 +1,6 @@
-========================
-Kayobe Development Guide
-========================
+Kayobe
+======
 
-.. toctree::
-   :maxdepth: 2
+Kayobe’s documentation has moved from ReadTheDocs to docs.openstack.org.
 
-   vagrant
-   manual
-   automated
-   development
-   testing
-   releases
-   contributing
+This page can be viewed at https://docs.openstack.org/kayobe/latest/development/index.html.

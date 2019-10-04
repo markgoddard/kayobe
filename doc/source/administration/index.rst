@@ -1,14 +1,6 @@
-==============
-Administration
-==============
+Kayobe
+======
 
-This section describes how to use kayobe to simplify post-deployment
-administrative tasks.
+Kayobe’s documentation has moved from ReadTheDocs to docs.openstack.org.
 
-.. toctree::
-   :maxdepth: 2
-
-   general
-   seed
-   overcloud
-   bare-metal
+This page can be viewed at https://docs.openstack.org/kayobe/latest/administration/index.html.

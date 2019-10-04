@@ -1,4 +1,6 @@
-=================
-How to Contribute
-=================
-.. include:: ../../../CONTRIBUTING.rst
+Kayobe
+======
+
+Kayobe’s documentation has moved from ReadTheDocs to docs.openstack.org.
+
+This page can be viewed at https://docs.openstack.org/kayobe/latest/development/contributing.html.
