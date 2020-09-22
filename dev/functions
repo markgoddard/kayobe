@@ -301,16 +301,16 @@ function overcloud_deploy {
 
     environment_setup
 
-    control_host_bootstrap
+    #control_host_bootstrap
 
-    echo "Configuring the controller host"
-    run_kayobe overcloud host configure
+    #echo "Configuring the controller host"
+    #run_kayobe overcloud host configure
 
-    # FIXME(mgoddard): Perform host upgrade workarounds to ensure hostname
-    # resolves to IP address of API interface for RabbitMQ. This seems to be
-    # required since https://review.openstack.org/#/c/584427 was merged.
-    echo "Workaround: upgrading the controller host"
-    run_kayobe overcloud host upgrade
+    ## FIXME(mgoddard): Perform host upgrade workarounds to ensure hostname
+    ## resolves to IP address of API interface for RabbitMQ. This seems to be
+    ## required since https://review.openstack.org/#/c/584427 was merged.
+    #echo "Workaround: upgrading the controller host"
+    #run_kayobe overcloud host upgrade
 
     # Note: This must currently be before host configure, because host
     # configure runs kolla-ansible.yml, which validates the presence of the
@@ -327,7 +327,7 @@ function overcloud_deploy {
         run_kayobe overcloud container image build
     else
         echo "Pulling overcloud container images"
-        run_kayobe overcloud container image pull
+        #run_kayobe overcloud container image pull
     fi
 
     echo "Deploying containerised overcloud services"
